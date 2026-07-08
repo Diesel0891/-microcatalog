@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>microcatalog</title>
+    <style>
+      #error-box { 
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        right: 0; 
+        background: #fee; 
+        color: #c00; 
+        padding: 16px; 
+        font-family: monospace; 
+        font-size: 14px; 
+        z-index: 9999; 
+        white-space: pre-wrap; 
+        word-break: break-word;
+        border-bottom: 2px solid #c00;
+      }
+      #error-box:empty { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="error-box"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      window.onerror = function(msg, url, line, col, err) {
+        document.getElementById('error-box').textContent += 
+          'ERROR: ' + msg + '\\n at ' + url + ':' + line + ':' + col + '\\n\\n';
+        return false;
+      };
+      window.onunhandledrejection = function(e) {
+        document.getElementById('error-box').textContent += 
+          'PROMISE REJECTION: ' + e.reason + '\\n\\n';
+      };
+    </script>
+  </body>
+</html>

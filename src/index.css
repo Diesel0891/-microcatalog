@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #fafaf9;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #ffffff;
+    --color-border: #e7e5e4;
+    --color-text-primary: #1c1917;
+    --color-text-secondary: #78716c;
+    --color-text-muted: #a8a29e;
+    --color-accent: #c65f3e;
+    --color-accent-hover: #a54c32;
+    --color-success: #528252;
+    --color-success-bg: #e3ebe3;
+    --color-error: #b91c1c;
+    --color-error-bg: #fef2f2;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

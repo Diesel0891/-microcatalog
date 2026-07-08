@@ -1,0 +1,702 @@
+import { useState, useCallback, useEffect } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { uploadToCloudinary } from '../lib/cloudinary'
+import { suggestProductDetails } from '../lib/ai'
+import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, Smartphone, Copy, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
+
+const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_ilrfv0.png'
+
+function Upload() {
+  const { sellerUuid } = useParams()
+  const [searchParams] = useSearchParams()
+  const isAdmin = searchParams.get('admin') === '1'
+  
+  const [items, setItems] = useState([])
+  const [totalItemCount, setTotalItemCount] = useState(0)
+  const [publishing, setPublishing] = useState(false)
+  const [published, setPublished] = useState(false)
+  const [sellerPhone, setSellerPhone] = useState('')
+  const [shopName, setShopName] = useState('')
+  const [phoneSaved, setPhoneSaved] = useState(false)
+  const [seller, setSeller] = useState(null)
+  const [loadingSeller, setLoadingSeller] = useState(true)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkPrice, setBulkPrice] = useState('')
+  const [bulkSize, setBulkSize] = useState('')
+  const [showBulkBar, setShowBulkBar] = useState(false)
+  const [suggestingIds, setSuggestingIds] = useState(new Set())
+
+  useEffect(() => {
+    async function loadSeller() {
+      try {
+        const { data } = await supabase.from('sellers').select('*').eq('uuid', sellerUuid).single()
+        
+        if (data) {
+          setSeller(data)
+          setSellerPhone(data.phone || '')
+          setShopName(data.shop_name || '')
+        } else {
+          const { data: newSeller, error: insertError } = await supabase.from('sellers').insert({
+            uuid: sellerUuid,
+            phone: '',
+            shop_name: '',
+            is_pro: false,
+            max_items: 10
+          }).select().single()
+          
+          if (insertError) {
+            console.error('Failed to create seller:', insertError)
+            alert('Failed to initialize seller. Please refresh.')
+          } else {
+            setSeller(newSeller)
+          }
+        }
+      } catch (err) {
+        console.error('Load seller error:', err)
+      } finally {
+        setLoadingSeller(false)
+      }
+    }
+    loadSeller()
+  }, [sellerUuid])
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: itemsData } = await supabase
+          .from('catalog_items')
+          .select('*')
+          .eq('seller_uuid', sellerUuid)
+          .eq('published', false)
+          .order('created_at', { ascending: false })
+
+        if (itemsData) {
+          setItems(itemsData.map(item => ({
+            id: item.id,
+            dbId: item.id,
+            imageUrl: item.image_url,
+            title: item.title || '',
+            price: item.price || '',
+            description: item.description || '',
+            sizeSpecs: item.size_specs || '',
+            extraNotes: item.extra_notes || '',
+            published: item.published,
+            uploading: false,
+            saved: true,
+          })))
+        }
+
+        const { count } = await supabase
+          .from('catalog_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('seller_uuid', sellerUuid)
+
+        setTotalItemCount(count || 0)
+      } catch (err) {
+        console.error('Load data error:', err)
+      }
+    }
+    loadData()
+  }, [sellerUuid])
+
+  const handleFileSelect = useCallback(async (e) => {
+    if (!seller) {
+      alert('Please wait, initializing...')
+      return
+    }
+
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+
+    const maxItems = (isAdmin ? 999999 : seller.max_items) || 10
+    const remaining = maxItems - totalItemCount
+
+    if (remaining <= 0 && !isAdmin) {
+      alert(`You've reached your limit of ${seller.max_items || 10} items. Upgrade to add more.`)
+      return
+    }
+
+    const filesToUpload = files.slice(0, isAdmin ? files.length : remaining)
+    if (filesToUpload.length === 0) {
+      alert(`You can only upload ${remaining} more item(s).`)
+      return
+    }
+
+    const newItems = filesToUpload.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      imageUrl: URL.createObjectURL(file),
+      title: '',
+      price: '',
+      description: '',
+      sizeSpecs: '',
+      extraNotes: '',
+      published: false,
+      uploading: false,
+      saved: false,
+    }))
+
+    setItems((prev) => [...prev, ...newItems])
+
+    for (const item of newItems) {
+      try {
+        setItems((prev) =>
+          prev.map((i) => (i.id === item.id ? { ...i, uploading: true } : i))
+        )
+
+        const imageUrl = await uploadToCloudinary(item.file)
+
+        const { data, error } = await supabase
+          .from('catalog_items')
+          .insert({
+            seller_uuid: sellerUuid,
+            image_url: imageUrl,
+            title: '',
+            price: '',
+            description: '',
+            size_specs: '',
+            extra_notes: '',
+            published: false,
+            seller_phone: sellerPhone || null,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id
+              ? { ...i, dbId: data.id, imageUrl, uploading: false, saved: true }
+              : i
+          )
+        )
+        setTotalItemCount(prev => prev + 1)
+      } catch (err) {
+        console.error('Upload failed:', err)
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, uploading: false, error: err.message } : i
+          )
+        )
+      }
+    }
+  }, [sellerUuid, sellerPhone, totalItemCount, seller, isAdmin])
+
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const applyBulk = useCallback(async () => {
+    if (selectedIds.size === 0) return
+
+    const updates = {}
+    if (bulkPrice.trim()) updates.price = bulkPrice.trim()
+    if (bulkSize.trim()) updates.size_specs = bulkSize.trim()
+
+    if (Object.keys(updates).length === 0) return
+
+    setItems((prev) =>
+      prev.map((item) =>
+        selectedIds.has(item.id)
+          ? { ...item, price: updates.price || item.price, sizeSpecs: updates.size_specs || item.sizeSpecs }
+          : item
+      )
+    )
+
+    const dbIds = items.filter(i => selectedIds.has(i.id) && i.dbId).map(i => i.dbId)
+    if (dbIds.length > 0) {
+      for (const dbId of dbIds) {
+        await supabase.from('catalog_items').update(updates).eq('id', dbId)
+      }
+    }
+
+    setSelectedIds(new Set())
+    setBulkPrice('')
+    setBulkSize('')
+  }, [selectedIds, bulkPrice, bulkSize, items])
+
+  const updateField = useCallback(async (id, field, value) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    )
+
+    const item = items.find((i) => i.id === id)
+    if (item?.dbId) {
+      const dbField = field === 'sizeSpecs' ? 'size_specs' : field === 'extraNotes' ? 'extra_notes' : field
+      await supabase.from('catalog_items').update({ [dbField]: value }).eq('id', item.dbId)
+    }
+  }, [items])
+
+  const removeItem = useCallback(async (id) => {
+    const item = items.find((i) => i.id === id)
+    if (item?.dbId) {
+      await supabase.from('catalog_items').delete().eq('id', item.dbId)
+      setTotalItemCount(prev => prev - 1)
+    }
+    setItems((prev) => prev.filter((item) => item.id !== id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }, [items])
+
+  const handleSuggest = useCallback(async (id) => {
+    const item = items.find((i) => i.id === id)
+    if (!item?.imageUrl || item.uploading || !item.saved) return
+
+    setSuggestingIds(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+
+    try {
+      const { title, description, suggestedPrice } = await suggestProductDetails(item.imageUrl)
+
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, title, description, price: suggestedPrice } : i))
+      )
+
+      if (item.dbId) {
+        await supabase.from('catalog_items').update({
+          title,
+          description,
+          price: suggestedPrice
+        }).eq('id', item.dbId)
+      }
+    } catch (err) {
+      console.error('AI Suggest failed:', err)
+      alert('AI suggestion failed. You can type the details manually.')
+    } finally {
+      setSuggestingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [items])
+
+  const validatePhone = (phone) => {
+    const cleaned = phone.replace(/\s/g, '')
+    return cleaned.startsWith('+') && /^\+[0-9]{10,15}$/.test(cleaned)
+  }
+
+  const canSave = sellerPhone.trim().length > 0 && validatePhone(sellerPhone)
+
+  const saveSellerInfo = useCallback(async () => {
+    if (!canSave) return
+    
+    await supabase.from('sellers').update({ 
+      phone: sellerPhone.trim(),
+      shop_name: shopName.trim()
+    }).eq('uuid', sellerUuid)
+    
+    await supabase
+      .from('catalog_items')
+      .update({ seller_phone: sellerPhone.trim() })
+      .eq('seller_uuid', sellerUuid)
+
+    setPhoneSaved(true)
+    setTimeout(() => setPhoneSaved(false), 2000)
+  }, [sellerUuid, sellerPhone, shopName, canSave])
+
+  const handlePublish = useCallback(async () => {
+    setPublishing(true)
+    try {
+      const { error } = await supabase
+        .from('catalog_items')
+        .update({ published: true })
+        .eq('seller_uuid', sellerUuid)
+        .eq('published', false)
+
+      if (error) throw error
+      setPublished(true)
+    } catch (err) {
+      alert('Publish failed: ' + err.message)
+    } finally {
+      setPublishing(false)
+    }
+  }, [sellerUuid])
+
+  const copyLink = useCallback(async () => {
+    const catalogUrl = `${window.location.origin}/#/c/${sellerUuid}`
+    try {
+      await navigator.clipboard.writeText(catalogUrl)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 3000)
+    } catch {
+      const textArea = document.createElement('textarea')
+      textArea.value = catalogUrl
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 3000)
+    }
+  }, [sellerUuid])
+
+  if (loadingSeller) {
+    return (
+      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-copper-500 animate-spin" strokeWidth={2} />
+      </div>
+    )
+  }
+
+  if (published) {
+    const catalogUrl = `${window.location.origin}/#/c/${sellerUuid}`
+    const displayName = shopName.trim() || 'Catalog'
+    return (
+      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-8 max-w-sm w-full text-center">
+          <div className="w-16 h-16 bg-sage-50 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="w-8 h-8 text-sage-600" strokeWidth={1.5} />
+          </div>
+          <h2 className="text-xl font-bold text-charcoal-950 mb-2">{displayName} Published</h2>
+          <p className="text-charcoal-500 text-sm mb-6">Your catalog is now live and ready to share.</p>
+          
+          <div className="bg-charcoal-50 rounded-xl p-4 mb-4 text-left">
+            <p className="text-xs text-charcoal-400 mb-2 font-medium uppercase tracking-wide flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5" strokeWidth={2} />
+              Catalog Link
+            </p>
+            <p className="text-charcoal-900 text-sm font-mono break-all leading-relaxed">{catalogUrl}</p>
+          </div>
+
+          {linkCopied && (
+            <div className="bg-sage-50 border border-sage-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+              <Check className="w-4 h-4 text-sage-600" strokeWidth={3} />
+              <p className="text-sage-700 text-sm font-medium">Link copied to clipboard</p>
+            </div>
+          )}
+
+          <button
+            onClick={copyLink}
+            className="w-full bg-charcoal-950 text-white py-3.5 rounded-xl font-medium hover:bg-charcoal-800 transition flex items-center justify-center"
+          >
+            Copy Link to Share with Customers
+          </button>
+          
+          <p className="text-charcoal-400 text-xs mt-4">
+            Share this link on WhatsApp, Instagram, Facebook, or anywhere
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const maxItems = (isAdmin ? 999999 : seller?.max_items) || 10
+  const remainingSlots = maxItems - totalItemCount
+  const isAtLimit = !isAdmin && remainingSlots <= 0
+  const phoneError = sellerPhone.trim() && !validatePhone(sellerPhone)
+
+  return (
+    <div className="min-h-screen bg-[var(--color-bg)] pb-28">
+      <div className="bg-white border-b border-stone-200 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-sm">
+              <img src={LOGO_URL} alt="Infini" className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-charcoal-950 leading-tight">Upload</h1>
+              <p className="text-xs text-charcoal-400">Manage your products</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-charcoal-400">{totalItemCount} / {isAdmin ? '∞' : maxItems} items</p>
+            {!isAdmin && !seller?.is_pro && (
+              <p className="text-xs text-copper-600 font-medium">{remainingSlots} remaining</p>
+            )}
+            {isAdmin && (
+              <p className="text-xs text-sage-600 font-medium">Admin mode</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {!isAdmin && !seller?.is_pro && remainingSlots <= 3 && (
+          <div className="bg-copper-50 border border-copper-200 rounded-xl p-4 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-copper-600 shrink-0 mt-0.5" strokeWidth={2} />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-copper-800">
+                {isAtLimit ? 'Item limit reached' : `${remainingSlots} slots left`}
+              </p>
+              <p className="text-xs text-copper-600 mt-0.5">
+                Upgrade to unlimited items. Contact us on WhatsApp.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Seller Info Card */}
+        <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Store className="w-4 h-4 text-copper-500" strokeWidth={2} />
+            <h2 className="text-sm font-semibold text-charcoal-700">Your Shop Details</h2>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal-500 mb-1.5">Shop Name <span className="text-charcoal-300 font-normal">(optional)</span></label>
+            <input
+              type="text"
+              placeholder="e.g. Ndiwo Fashion"
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal-500 mb-1.5">WhatsApp Number <span className="text-red-500">*</span></label>
+            <input
+              type="tel"
+              placeholder="+265 99 123 4567"
+              value={sellerPhone}
+              onChange={(e) => setSellerPhone(e.target.value)}
+              className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent ${
+                phoneError ? 'border-red-300 bg-red-50' : 'border-stone-200'
+              }`}
+            />
+            {phoneError && (
+              <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" strokeWidth={2} />
+                Must start with + and contain 10-15 digits
+              </p>
+            )}
+            <p className="text-xs text-charcoal-400 mt-1.5">Customers will message this number on WhatsApp.</p>
+          </div>
+
+          <button
+            onClick={saveSellerInfo}
+            disabled={!canSave}
+            className="w-full bg-charcoal-950 text-white py-3 rounded-xl font-medium hover:bg-charcoal-800 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+          >
+            {phoneSaved ? (
+              <>
+                <Check className="w-4 h-4" strokeWidth={3} />
+                Saved
+              </>
+            ) : (
+              'Save Shop Details'
+            )}
+          </button>
+        </div>
+
+        <label className={`block w-full border-2 border-dashed rounded-xl p-8 text-center transition ${
+          isAtLimit 
+            ? 'border-stone-300 bg-stone-50 opacity-50 cursor-not-allowed' 
+            : 'border-copper-300 hover:border-copper-500 hover:bg-copper-50/50 cursor-pointer'
+        }`}>
+          <UploadIcon className={`w-8 h-8 mx-auto mb-3 ${isAtLimit ? 'text-stone-400' : 'text-copper-500'}`} strokeWidth={1.5} />
+          <p className={`font-medium text-sm ${isAtLimit ? 'text-stone-500' : 'text-charcoal-900'}`}>
+            {isAtLimit ? 'Item limit reached' : 'Tap to upload photos'}
+          </p>
+          <p className="text-charcoal-400 text-xs mt-1">
+            {isAtLimit ? 'Upgrade for unlimited items' : `Up to ${Math.min(10, remainingSlots)} more images`}
+          </p>
+          <input 
+            type="file" 
+            accept="image/*" 
+            multiple 
+            onChange={handleFileSelect} 
+            className="hidden" 
+          />
+        </label>
+
+        {items.length > 1 && (
+          <button
+            onClick={() => setShowBulkBar(!showBulkBar)}
+            className="flex items-center gap-2 text-sm font-medium text-copper-600 hover:text-copper-700 transition"
+          >
+            {showBulkBar ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {showBulkBar ? 'Hide Bulk Apply' : 'Bulk Apply Price & Specs'}
+          </button>
+        )}
+
+        {showBulkBar && (
+          <div className="bg-copper-50 border border-copper-200 rounded-xl p-4 space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Price (e.g. MK 15,000)"
+                value={bulkPrice}
+                onChange={(e) => setBulkPrice(e.target.value)}
+                className="flex-1 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
+              />
+              <input
+                type="text"
+                placeholder="Size / Specs"
+                value={bulkSize}
+                onChange={(e) => setBulkSize(e.target.value)}
+                className="flex-1 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
+              />
+            </div>
+            <button
+              onClick={applyBulk}
+              disabled={selectedIds.size === 0 || (!bulkPrice.trim() && !bulkSize.trim())}
+              className="w-full bg-copper-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-copper-700 disabled:opacity-50 transition"
+            >
+              Apply to Selected Items
+            </button>
+            <p className="text-xs text-copper-600">Tap the checkbox on cards to select them</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className={`bg-white rounded-xl shadow-sm border overflow-hidden transition ${
+                selectedIds.has(item.id) ? 'border-copper-400 ring-2 ring-copper-100' : 'border-stone-200'
+              }`}
+            >
+              {showBulkBar && (
+                <div className="px-4 pt-3 pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                      className="w-5 h-5 text-copper-600 rounded focus:ring-copper-500 border-stone-300"
+                    />
+                    <span className="text-sm text-charcoal-600 font-medium">Select for bulk apply</span>
+                  </label>
+                </div>
+              )}
+
+              <div className="relative">
+                <img src={item.imageUrl} alt="Product" className="w-full h-48 object-cover" />
+                {item.uploading && (
+                  <div className="absolute inset-0 bg-charcoal-950/60 flex items-center justify-center backdrop-blur-sm">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" strokeWidth={2} />
+                  </div>
+                )}
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="absolute top-2 right-2 bg-white/90 text-charcoal-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition shadow-sm"
+                >
+                  <Trash2 className="w-4 h-4" strokeWidth={2} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3">
+              <button
+                onClick={() => handleSuggest(item.id)}
+                disabled={!item.saved || item.uploading || suggestingIds.has(item.id)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-copper-200 bg-copper-50 text-copper-700 text-sm font-medium hover:bg-copper-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                {suggestingIds.has(item.id) ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" strokeWidth={2} />
+                    ✨ Suggest Details
+                  </>
+                )}
+              </button>
+
+                <input
+                  type="text"
+                  placeholder="Title *"
+                  value={item.title}
+                  onChange={(e) => updateField(item.id, 'title', e.target.value)}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+                />
+                <input
+                  type="text"
+                  placeholder="Price *"
+                  value={item.price}
+                  onChange={(e) => updateField(item.id, 'price', e.target.value)}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+                />
+
+                <details className="group">
+                  <summary className="flex items-center gap-2 text-sm text-copper-600 cursor-pointer font-medium select-none">
+                    <Plus className="w-4 h-4" strokeWidth={2} />
+                    Add Details
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <textarea
+                      placeholder="Description"
+                      value={item.description}
+                      onChange={(e) => updateField(item.id, 'description', e.target.value)}
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 h-20 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Size / Specs"
+                      value={item.sizeSpecs}
+                      onChange={(e) => updateField(item.id, 'sizeSpecs', e.target.value)}
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Extra Notes"
+                      value={item.extraNotes}
+                      onChange={(e) => updateField(item.id, 'extraNotes', e.target.value)}
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
+                    />
+                  </div>
+                </details>
+
+                {item.error && (
+                  <p className="text-red-600 text-sm flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" strokeWidth={2} />
+                    {item.error}
+                  </p>
+                )}
+                {item.saved && !item.error && (
+                  <p className="text-sage-600 text-sm flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    Saved
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {items.length > 0 && (
+          <button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="fixed bottom-4 left-4 right-4 max-w-2xl mx-auto bg-charcoal-950 text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:bg-charcoal-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+          >
+            {publishing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" strokeWidth={2} />
+                Publishing...
+              </>
+            ) : (
+              <>
+                <Store className="w-5 h-5" strokeWidth={2} />
+                Publish Catalog
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default Upload
