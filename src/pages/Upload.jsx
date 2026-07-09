@@ -615,15 +615,17 @@ function Upload() {
                   </>
                 )}
               </button>
+
                 {aiErrorId === item.id && (
                   <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
                     Infini says: AI suggestion failed. You can type the details manually.
                   </p>
                 )}
 
+                <p className="text-copper-500 text-xs mt-1 text-center">Beta feature — may be unavailable at times</p>
+
                 <input
                   type="text"
-                <p className="text-copper-500 text-xs mt-1 text-center">Beta feature — may be unavailable at times</p>
                   placeholder="Title *"
                   value={item.title}
                   onChange={(e) => updateField(item.id, 'title', e.target.value)}
