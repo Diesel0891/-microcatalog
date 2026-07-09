@@ -28,6 +28,7 @@ function Upload() {
   const [bulkSize, setBulkSize] = useState('')
   const [showBulkBar, setShowBulkBar] = useState(false)
   const [suggestingIds, setSuggestingIds] = useState(new Set())
+  const [aiErrorId, setAiErrorId] = useState(null)
 
   useEffect(() => {
     async function loadSeller() {
@@ -44,7 +45,7 @@ function Upload() {
             phone: '',
             shop_name: '',
             is_pro: false,
-            max_items: 10
+            max_items: 999
           }).select().single()
           
           if (insertError) {
@@ -111,11 +112,11 @@ function Upload() {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
-    const maxItems = (isAdmin ? 999999 : seller.max_items) || 10
+    const maxItems = (isAdmin ? 999999 : seller.max_items) || 999
     const remaining = maxItems - totalItemCount
 
     if (remaining <= 0 && !isAdmin) {
-      alert(`You've reached your limit of ${seller.max_items || 10} items. Upgrade to add more.`)
+      alert(`You've reached your limit of ${seller.max_items || 999} items. Upgrade to add more.`)
       return
     }
 
@@ -257,6 +258,7 @@ function Upload() {
     const item = items.find((i) => i.id === id)
     if (!item?.imageUrl || item.uploading || !item.saved) return
 
+    setAiErrorId(null)
     setSuggestingIds(prev => {
       const next = new Set(prev)
       next.add(id)
@@ -279,7 +281,7 @@ function Upload() {
       }
     } catch (err) {
       console.error('AI Suggest failed:', err)
-      alert('AI suggestion failed. You can type the details manually.')
+      setAiErrorId(item.id)
     } finally {
       setSuggestingIds(prev => {
         const next = new Set(prev)
@@ -386,7 +388,7 @@ function Upload() {
 
           <button
             onClick={copyLink}
-            className="w-full bg-charcoal-950 text-white py-3.5 rounded-xl font-medium hover:bg-charcoal-800 transition flex items-center justify-center"
+            className="w-full bg-charcoal-950 text-white py-3.5 px-4 rounded-xl font-medium hover:bg-charcoal-800 transition flex items-center justify-center"
           >
             Copy Link to Share with Customers
           </button>
@@ -399,7 +401,7 @@ function Upload() {
     )
   }
 
-  const maxItems = (isAdmin ? 999999 : seller?.max_items) || 10
+  const maxItems = (isAdmin ? 999999 : seller?.max_items) || 999
   const remainingSlots = maxItems - totalItemCount
   const isAtLimit = !isAdmin && remainingSlots <= 0
   const phoneError = sellerPhone.trim() && !validatePhone(sellerPhone)
@@ -609,13 +611,19 @@ function Upload() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" strokeWidth={2} />
-                    ✨ Suggest Details
+                    Suggest Details
                   </>
                 )}
               </button>
+                {aiErrorId === item.id && (
+                  <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
+                    Infini says: AI suggestion failed. You can type the details manually.
+                  </p>
+                )}
 
                 <input
                   type="text"
+                <p className="text-copper-500 text-xs mt-1 text-center">Beta feature — may be unavailable at times</p>
                   placeholder="Title *"
                   value={item.title}
                   onChange={(e) => updateField(item.id, 'title', e.target.value)}
