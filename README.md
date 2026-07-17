@@ -1,16 +1,49 @@
-# React + Vite
+# Microcatalog
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A frictionless WhatsApp-integrated micro-catalog platform for single sellers.
 
-Currently, two official plugins are available:
+## What it does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Sellers upload product photos, add titles/prices, and publish a public catalog
+- Customers browse the catalog, tap an item, and are redirected to WhatsApp with a pre-filled message
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + Vite 4 + Tailwind CSS 3
+- Supabase (database)
+- Cloudinary (image hosting)
+- Google Gemini (optional AI suggestions)
 
-## Expanding the Oxlint configuration
+## Routes
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- `/#/` — Landing page
+- `/#/u/:sellerUuid` — Seller upload & management
+- `/#/c/:sellerUuid` — Public customer catalog
+
+## Development
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+## Build
+
+```bash
+pnpm run build
+```
+
+## Environment Variables
+
+Create a `.env` file with:
+
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_CLOUDINARY_CLOUD_NAME=
+VITE_GEMINI_API_KEY=
+```
+
+## License
+
+Private — Infini

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Loader2, MessageCircle, ShoppingBag, Tag, ChevronRight, Package, Store } from 'lucide-react'
+import { Loader2, MessageCircle, Tag, ChevronRight, Package, Store } from 'lucide-react'
 
 function Catalog() {
   const { sellerUuid } = useParams()

@@ -3,9 +3,38 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
-import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, Smartphone, Copy, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
+import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
 
-const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_ilrfv0.png'
+const LOGO_URL = 'https://res.cloudinary.com/a3udr8I4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_ilrfv0.png'
+const COUNTRIES = [
+  { code: 'MW', flag: '🇲🇼', name: 'Malawi', dial: '+265', placeholder: '0991 234 567', digits: 9, stripLeadingZero: true },
+  { code: 'ZM', flag: '🇿🇲', name: 'Zambia', dial: '+260', placeholder: '0977 123 456', digits: 9, stripLeadingZero: true },
+  { code: 'ZW', flag: '🇿🇼', name: 'Zimbabwe', dial: '+263', placeholder: '071 234 5678', digits: 9, stripLeadingZero: true },
+  { code: 'ZA', flag: '🇿🇦', name: 'South Africa', dial: '+27', placeholder: '071 234 5678', digits: 9, stripLeadingZero: true },
+  { code: 'TZ', flag: '🇹🇿', name: 'Tanzania', dial: '+255', placeholder: '0712 345 678', digits: 9, stripLeadingZero: true },
+  { code: 'MZ', flag: '🇲🇿', name: 'Mozambique', dial: '+258', placeholder: '84 123 4567', digits: 8, stripLeadingZero: false },
+  { code: 'BW', flag: '🇧🇼', name: 'Botswana', dial: '+267', placeholder: '71 123 456', digits: 8, stripLeadingZero: false },
+  { code: 'OTHER', flag: '🌍', name: 'Other', dial: '+', placeholder: 'e.g. +447123456789', digits: 7, stripLeadingZero: false },
+]
+
+function detectCountry() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const map = {
+      'Africa/Blantyre': 'MW', 'Africa/Lilongwe': 'MW',
+      'Africa/Lusaka': 'ZM',
+      'Africa/Harare': 'ZW',
+      'Africa/Johannesburg': 'ZA', 'Africa/Pretoria': 'ZA',
+      'Africa/Dar_es_Salaam': 'TZ',
+      'Africa/Maputo': 'MZ',
+      'Africa/Gaborone': 'BW',
+    }
+    return map[tz] || 'MW'
+  } catch {
+    return 'MW'
+  }
+}
+
 
 function Upload() {
   const { sellerUuid } = useParams()
@@ -20,6 +49,7 @@ function Upload() {
   const [shopName, setShopName] = useState('')
   const [phoneSaved, setPhoneSaved] = useState(false)
   const [seller, setSeller] = useState(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loadingSeller, setLoadingSeller] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -29,6 +59,9 @@ function Upload() {
   const [showBulkBar, setShowBulkBar] = useState(false)
   const [suggestingIds, setSuggestingIds] = useState(new Set())
   const [aiErrorId, setAiErrorId] = useState(null)
+  const [selectedCountry, setSelectedCountry] = useState(detectCountry())
+  const [localPhone, setLocalPhone] = useState('')
+  const [phoneTouched, setPhoneTouched] = useState(false)
 
   useEffect(() => {
     async function loadSeller() {
@@ -37,8 +70,20 @@ function Upload() {
         
         if (data) {
           setSeller(data)
-          setSellerPhone(data.phone || '')
           setShopName(data.shop_name || '')
+          const fullPhone = data.phone || ''
+          setSellerPhone(fullPhone)
+          // Parse existing phone into country + local
+          if (fullPhone) {
+            const country = COUNTRIES.find(c => fullPhone.startsWith(c.dial) && c.code !== 'OTHER')
+            if (country) {
+              setSelectedCountry(country.code)
+              setLocalPhone(fullPhone.slice(country.dial.length))
+            } else {
+              setSelectedCountry('OTHER')
+              setLocalPhone(fullPhone.replace(/^\+/, ''))
+            }
+          }
         } else {
           const { data: newSeller, error: insertError } = await supabase.from('sellers').insert({
             uuid: sellerUuid,
@@ -50,7 +95,7 @@ function Upload() {
           
           if (insertError) {
             console.error('Failed to create seller:', insertError)
-            alert('Failed to initialize seller. Please refresh.')
+            alert('Unable to connect to the database. Please check your internet connection and try again. If this persists, contact support.')
           } else {
             setSeller(newSeller)
           }
@@ -104,11 +149,6 @@ function Upload() {
   }, [sellerUuid])
 
   const handleFileSelect = useCallback(async (e) => {
-    if (!seller) {
-      alert('Please wait, initializing...')
-      return
-    }
-
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
@@ -178,9 +218,14 @@ function Upload() {
         setTotalItemCount(prev => prev + 1)
       } catch (err) {
         console.error('Upload failed:', err)
+        const friendlyError = err.message?.includes('401') || err.message?.includes('Unauthorized')
+          ? 'Image upload failed: Please check your Cloudinary configuration.'
+          : err.message?.includes('network') || err.message?.includes('fetch')
+          ? 'Upload failed: Please check your internet connection.'
+          : 'Upload failed: ' + err.message
         setItems((prev) =>
           prev.map((i) =>
-            i.id === item.id ? { ...i, uploading: false, error: err.message } : i
+            i.id === item.id ? { ...i, uploading: false, error: friendlyError } : i
           )
         )
       }
@@ -293,29 +338,61 @@ function Upload() {
 
   const validatePhone = (phone) => {
     const cleaned = phone.replace(/\s/g, '')
-    return cleaned.startsWith('+') && /^\+[0-9]{10,15}$/.test(cleaned)
+    return cleaned.startsWith('+') && /^\+[0-9]{7,15}$/.test(cleaned)
   }
 
-  const canSave = sellerPhone.trim().length > 0 && validatePhone(sellerPhone)
+  const getFullPhone = () => {
+    const country = COUNTRIES.find(c => c.code === selectedCountry)
+    if (!country) return ''
+    if (country.code === 'OTHER') {
+      const cleaned = localPhone.replace(/\s/g, '')
+      return cleaned.startsWith('+') ? cleaned : '+' + cleaned
+    }
+    let cleaned = localPhone.replace(/\D/g, '')
+    if (country.stripLeadingZero && cleaned.startsWith('0')) {
+      cleaned = cleaned.slice(1)
+    }
+    return country.dial + cleaned
+  }
+
+  const validateLocalPhone = () => {
+    const country = COUNTRIES.find(c => c.code === selectedCountry)
+    if (!country) return false
+    let cleaned = localPhone.replace(/\D/g, '')
+    if (country.stripLeadingZero && cleaned.startsWith('0')) {
+      cleaned = cleaned.slice(1)
+    }
+    return cleaned.length === country.digits
+  }
+
+  const canSave = validateLocalPhone()
 
   const saveSellerInfo = useCallback(async () => {
     if (!canSave) return
     
     await supabase.from('sellers').update({ 
-      phone: sellerPhone.trim(),
+      phone: getFullPhone(),
       shop_name: shopName.trim()
     }).eq('uuid', sellerUuid)
     
     await supabase
       .from('catalog_items')
-      .update({ seller_phone: sellerPhone.trim() })
+      .update({ seller_phone: getFullPhone() })
       .eq('seller_uuid', sellerUuid)
 
+    setSellerPhone(getFullPhone())
     setPhoneSaved(true)
-    setTimeout(() => setPhoneSaved(false), 2000)
-  }, [sellerUuid, sellerPhone, shopName, canSave])
+    setHasUnsavedChanges(false)
+  }, [sellerUuid, getFullPhone, shopName, canSave])
 
-  const handlePublish = useCallback(async () => {
+  const handlePublish = async () => {
+    const fullPhone = getFullPhone()
+    if (!validatePhone(fullPhone)) {
+      alert('Please save a valid WhatsApp number before publishing.')
+      setPhoneTouched(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     setPublishing(true)
     try {
       const { error } = await supabase
@@ -327,11 +404,14 @@ function Upload() {
       if (error) throw error
       setPublished(true)
     } catch (err) {
-      alert('Publish failed: ' + err.message)
+      const friendlyPublishError = err.message?.includes('401') || err.message?.includes('Unauthorized')
+        ? 'Publish failed: Database connection issue. Please check your Supabase configuration.'
+        : 'Publish failed: ' + err.message
+      alert(friendlyPublishError)
     } finally {
       setPublishing(false)
     }
-  }, [sellerUuid])
+  }
 
   const copyLink = useCallback(async () => {
     const catalogUrl = `${window.location.origin}/#/c/${sellerUuid}`
@@ -404,7 +484,6 @@ function Upload() {
   const maxItems = (isAdmin ? 999999 : seller?.max_items) || 999
   const remainingSlots = maxItems - totalItemCount
   const isAtLimit = !isAdmin && remainingSlots <= 0
-  const phoneError = sellerPhone.trim() && !validatePhone(sellerPhone)
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-28">
@@ -457,28 +536,39 @@ function Upload() {
             <label className="block text-xs font-medium text-charcoal-500 mb-1.5">Shop Name <span className="text-charcoal-300 font-normal">(optional)</span></label>
             <input
               type="text"
-              placeholder="e.g. Ndiwo Fashion"
+              placeholder="e.g. Africa Trading"
               value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
+              onChange={(e) => { setShopName(e.target.value); setHasUnsavedChanges(true); setPhoneSaved(false); }}
               className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
             />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-charcoal-500 mb-1.5">WhatsApp Number <span className="text-red-500">*</span></label>
-            <input
-              type="tel"
-              placeholder="+265 99 123 4567"
-              value={sellerPhone}
-              onChange={(e) => setSellerPhone(e.target.value)}
-              className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent ${
-                phoneError ? 'border-red-300 bg-red-50' : 'border-stone-200'
-              }`}
-            />
-            {phoneError && (
+            <div className="flex gap-2 overflow-hidden">
+              <select
+                value={selectedCountry}
+                onChange={(e) => { setSelectedCountry(e.target.value); setLocalPhone(''); setHasUnsavedChanges(true); setPhoneSaved(false); }}
+                className="border border-stone-200 rounded-lg px-2 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent shrink-0 max-w-[40%]"
+              >
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                placeholder={COUNTRIES.find(c => c.code === selectedCountry)?.placeholder || ''}
+                value={localPhone}
+                onChange={(e) => { setLocalPhone(e.target.value); setPhoneTouched(true); setHasUnsavedChanges(true); setPhoneSaved(false); }}
+                className={`flex-1 border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent ${
+                  phoneTouched && !validateLocalPhone() ? 'border-red-300 bg-red-50' : 'border-stone-200'
+                }`}
+              />
+            </div>
+            {phoneTouched && !validateLocalPhone() && (
               <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" strokeWidth={2} />
-                Must start with + and contain 10-15 digits
+                Please enter a valid number for {COUNTRIES.find(c => c.code === selectedCountry)?.name || 'your country'}
               </p>
             )}
             <p className="text-xs text-charcoal-400 mt-1.5">Customers will message this number on WhatsApp.</p>
@@ -489,10 +579,10 @@ function Upload() {
             disabled={!canSave}
             className="w-full bg-charcoal-950 text-white py-3 rounded-xl font-medium hover:bg-charcoal-800 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
-            {phoneSaved ? (
+            {phoneSaved && !hasUnsavedChanges ? (
               <>
                 <Check className="w-4 h-4" strokeWidth={3} />
-                Saved
+                Shop Details Saved
               </>
             ) : (
               'Save Shop Details'
@@ -510,7 +600,7 @@ function Upload() {
             {isAtLimit ? 'Item limit reached' : 'Tap to upload photos'}
           </p>
           <p className="text-charcoal-400 text-xs mt-1">
-            {isAtLimit ? 'Upgrade for unlimited items' : `Up to ${Math.min(10, remainingSlots)} more images`}
+            {isAtLimit ? 'Upgrade for unlimited items' : `Up to ${remainingSlots} more images`}
           </p>
           <input 
             type="file" 
@@ -539,14 +629,14 @@ function Upload() {
                 placeholder="Price (e.g. MK 15,000)"
                 value={bulkPrice}
                 onChange={(e) => setBulkPrice(e.target.value)}
-                className="flex-1 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
+                className="flex-1 min-w-0 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
               />
               <input
                 type="text"
                 placeholder="Size / Specs"
                 value={bulkSize}
                 onChange={(e) => setBulkSize(e.target.value)}
-                className="flex-1 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
+                className="flex-1 min-w-0 border border-copper-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400"
               />
             </div>
             <button
@@ -611,18 +701,17 @@ function Upload() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" strokeWidth={2} />
-                    Suggest Details
+                    Suggest Details (Beta)
                   </>
                 )}
               </button>
 
                 {aiErrorId === item.id && (
                   <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
-                    Infini says: AI suggestion failed. You can type the details manually.
+                    Suggestions aren't ready. Please fill in the details manually.
                   </p>
                 )}
 
-                <p className="text-copper-500 text-xs mt-1 text-center">Beta feature — may be unavailable at times</p>
 
                 <input
                   type="text"
