@@ -59,6 +59,7 @@ function Upload() {
   const [showBulkBar, setShowBulkBar] = useState(false)
   const [suggestingIds, setSuggestingIds] = useState(new Set())
   const [aiErrorId, setAiErrorId] = useState(null)
+  const [aiErrorMessage, setAiErrorMessage] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(detectCountry())
   const [localPhone, setLocalPhone] = useState('')
   const [phoneTouched, setPhoneTouched] = useState(false)
@@ -304,6 +305,7 @@ function Upload() {
     if (!item?.imageUrl || item.uploading || !item.saved) return
 
     setAiErrorId(null)
+    setAiErrorMessage('')
     setSuggestingIds(prev => {
       const next = new Set(prev)
       next.add(id)
@@ -327,6 +329,7 @@ function Upload() {
     } catch (err) {
       console.error('AI Suggest failed:', err)
       setAiErrorId(item.id)
+      setAiErrorMessage(err.message || 'Unknown error')
     } finally {
       setSuggestingIds(prev => {
         const next = new Set(prev)
@@ -708,7 +711,7 @@ function Upload() {
 
                 {aiErrorId === item.id && (
                   <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
-                    Suggestions aren't ready. Please fill in the details manually.
+                    <span className="font-semibold">Error:</span> {aiErrorMessage}
                   </p>
                 )}
 
