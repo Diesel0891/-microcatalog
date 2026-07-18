@@ -37,6 +37,7 @@ function Catalog() {
         if (error) throw error
         setItems(data || [])
       } catch (err) {
+        console.error('Catalog fetch failed:', err)
         setError(err.message)
       } finally {
         setLoading(false)
