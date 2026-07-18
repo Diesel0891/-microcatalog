@@ -5,7 +5,7 @@ import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
 import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
 
-const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png'
+const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png?v=2'
 const COUNTRIES = [
   { code: 'MW', flag: '🇲🇼', name: 'Malawi', dial: '+265', placeholder: '0991 234 567', digits: 9, stripLeadingZero: true },
   { code: 'ZM', flag: '🇿🇲', name: 'Zambia', dial: '+260', placeholder: '0977 123 456', digits: 9, stripLeadingZero: true },
@@ -59,7 +59,6 @@ function Upload() {
   const [showBulkBar, setShowBulkBar] = useState(false)
   const [suggestingIds, setSuggestingIds] = useState(new Set())
   const [aiErrorId, setAiErrorId] = useState(null)
-  const [aiErrorMessage, setAiErrorMessage] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(detectCountry())
   const [localPhone, setLocalPhone] = useState('')
   const [phoneTouched, setPhoneTouched] = useState(false)
@@ -329,7 +328,6 @@ function Upload() {
     } catch (err) {
       console.error('AI Suggest failed:', err)
       setAiErrorId(item.id)
-      setAiErrorMessage(err.message || 'Unknown error')
     } finally {
       setSuggestingIds(prev => {
         const next = new Set(prev)
@@ -711,7 +709,7 @@ function Upload() {
 
                 {aiErrorId === item.id && (
                   <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
-                    <span className="font-semibold">Error:</span> {aiErrorMessage}
+                    Suggestions aren't ready. Please fill in the details manually.
                   </p>
                 )}
 

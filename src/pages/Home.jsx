@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Eye, ArrowRight } from 'lucide-react'
 
-const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png'
+const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png?v=2'
 
 function Home() {
   const testSellerUuid = 'x7k2m9p4qz'
