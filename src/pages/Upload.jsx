@@ -5,7 +5,7 @@ import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
 import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
 
-const LOGO_URL = 'https://res.cloudinary.com/a3udr8I4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_ilrfv0.png'
+const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png'
 const COUNTRIES = [
   { code: 'MW', flag: '🇲🇼', name: 'Malawi', dial: '+265', placeholder: '0991 234 567', digits: 9, stripLeadingZero: true },
   { code: 'ZM', flag: '🇿🇲', name: 'Zambia', dial: '+260', placeholder: '0977 123 456', digits: 9, stripLeadingZero: true },
