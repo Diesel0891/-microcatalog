@@ -344,7 +344,7 @@ function Upload() {
     return cleaned.startsWith('+') && /^\+[0-9]{7,15}$/.test(cleaned)
   }
 
-  const getFullPhone = () => {
+  const getFullPhone = useCallback(() => {
     const country = COUNTRIES.find(c => c.code === selectedCountry)
     if (!country) return ''
     if (country.code === 'OTHER') {
@@ -356,7 +356,7 @@ function Upload() {
       cleaned = cleaned.slice(1)
     }
     return country.dial + cleaned
-  }
+  }, [selectedCountry, localPhone])
 
   const validateLocalPhone = () => {
     const country = COUNTRIES.find(c => c.code === selectedCountry)
