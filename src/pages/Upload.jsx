@@ -304,7 +304,6 @@ function Upload() {
     if (!item?.imageUrl || item.uploading || !item.saved) return
 
     setAiErrorId(null)
-    setAiErrorMessage('')
     setSuggestingIds(prev => {
       const next = new Set(prev)
       next.add(id)
