@@ -1,7 +1,34 @@
+/**
+ * Google Gemini AI integration for Microcatalog.
+ *
+ * Provides optional "Suggest Details" functionality for product photos.
+ * This is a convenience layer — the seller can always type manually.
+ * Uses the Gemini 2.5 Flash model with a single-image, single-purpose prompt.
+ *
+ * @module ai
+ * @see {@link https://ai.google.dev/gemini-api/docs}
+ */
+
 import { logger } from './logger.js'
+
+/** Gemini API key from Vite environment variable. */
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+
+/** Gemini API endpoint for the 2.5 Flash model. */
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
+/**
+ * Request AI-generated product details from a product photo.
+ *
+ * Sends the image to Gemini with a structured prompt asking for title,
+ * description, and price in Malawian Kwacha format. The response is
+ * parsed as JSON — if the format is unexpected, the error is logged
+ * and re-thrown for the caller to handle.
+ *
+ * @param {string} imageUrl - URL of the product image (typically a Cloudinary secure_url).
+ * @returns {Promise<{title: string, description: string, suggestedPrice: string}>}
+ * @throws {Error} If the API key is missing, the request fails, or the response cannot be parsed.
+ */
 export async function suggestProductDetails(imageUrl) {
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key not configured')
@@ -63,6 +90,17 @@ Respond ONLY in this exact JSON format:
   }
 }
 
+/**
+ * Convert an image URL to base64 string and detect MIME type.
+ *
+ * Fetches the image as a blob, then uses FileReader to produce a
+ * data URL. The base64 payload is extracted by stripping the
+ * data URL prefix (e.g., "data:image/jpeg;base64,").
+ *
+ * @param {string} imageUrl - The image URL to convert.
+ * @returns {Promise<{base64: string, mimeType: string}>}
+ * @throws {Error} If the image cannot be fetched or read.
+ */
 async function imageUrlToBase64(imageUrl) {
   const response = await fetch(imageUrl)
   const blob = await response.blob()

@@ -1,7 +1,13 @@
 /**
  * Centralized structured logging for Microcatalog.
- * Zero-backend: uses console methods only. No external service.
- * Never logs sensitive data (API keys, tokens, passwords).
+ *
+ * Zero-backend logging layer using native console methods.
+ * No external service, no network calls, no sensitive data exposure.
+ *
+ * Five levels: DEBUG, INFO, WARN, ERROR, FATAL.
+ * All log entries include ISO timestamp, level, and context tag.
+ *
+ * @module logger
  */
 
 const LEVELS = {
