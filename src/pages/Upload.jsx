@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
+import { logger } from '../lib/logger.js'
 import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
 
 const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png?v=2'
@@ -94,14 +95,14 @@ function Upload() {
           }).select().single()
           
           if (insertError) {
-            console.error('Failed to create seller:', insertError)
+            logger.error('Upload', 'Failed to create seller', { message: insertError.message })
             alert('Unable to connect to the database. Please check your internet connection and try again. If this persists, contact support.')
           } else {
             setSeller(newSeller)
           }
         }
       } catch (err) {
-        console.error('Load seller error:', err)
+        logger.error('Upload', 'Load seller error', { message: err.message })
       } finally {
         setLoadingSeller(false)
       }
@@ -142,7 +143,7 @@ function Upload() {
 
         setTotalItemCount(count || 0)
       } catch (err) {
-        console.error('Load data error:', err)
+        logger.error('Upload', 'Load data error', { message: err.message })
       }
     }
     loadData()
@@ -217,7 +218,7 @@ function Upload() {
         )
         setTotalItemCount(prev => prev + 1)
       } catch (err) {
-        console.error('Upload failed:', err)
+        logger.error('Upload', 'Image upload failed', { message: err.message })
         const friendlyError = err.message?.includes('401') || err.message?.includes('Unauthorized')
           ? 'Image upload failed: Please check your Cloudinary configuration.'
           : err.message?.includes('network') || err.message?.includes('fetch')
@@ -325,7 +326,7 @@ function Upload() {
         }).eq('id', item.dbId)
       }
     } catch (err) {
-      console.error('AI Suggest failed:', err)
+      logger.error('Upload', 'AI Suggest failed', { message: err.message })
       setAiErrorId(item.id)
     } finally {
       setSuggestingIds(prev => {

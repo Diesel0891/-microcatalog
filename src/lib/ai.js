@@ -1,3 +1,4 @@
+import { logger } from './logger.js'
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
@@ -57,7 +58,7 @@ Respond ONLY in this exact JSON format:
       suggestedPrice: result.suggestedPrice || ''
     }
   } catch (err) {
-    console.error('AI Suggest failed:', err)
+    logger.error('AI', 'AI Suggest failed', { message: err.message })
     throw err
   }
 }

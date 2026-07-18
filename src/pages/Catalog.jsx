@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { logger } from '../lib/logger.js'
 import { Loader2, MessageCircle, Tag, ChevronRight, Package, Store } from 'lucide-react'
 
 function Catalog() {
@@ -37,7 +38,7 @@ function Catalog() {
         if (error) throw error
         setItems(data || [])
       } catch (err) {
-        console.error('Catalog fetch failed:', err)
+        logger.error('Catalog', 'Fetch failed', { message: err.message })
         setError(err.message)
       } finally {
         setLoading(false)

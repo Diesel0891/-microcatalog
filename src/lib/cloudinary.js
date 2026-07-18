@@ -1,3 +1,4 @@
+import { logger } from './logger.js'
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = 'catalog_uploads'
 
@@ -16,7 +17,7 @@ export async function uploadToCloudinary(file) {
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Cloudinary error response:', errorText)
+    logger.error('Cloudinary', 'Upload failed', { status: response.status, response: errorText })
     throw new Error(`Cloudinary upload failed: ${response.status} ${response.statusText}`)
   }
 
