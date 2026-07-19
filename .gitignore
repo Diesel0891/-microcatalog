@@ -25,3 +25,6 @@ dist-ssr
 .env
 node_modules/
 dist/
+
+# Build artifacts containing inlined secrets
+dist.zip

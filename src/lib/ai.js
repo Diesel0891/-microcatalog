@@ -45,10 +45,11 @@ Respond ONLY in this exact JSON format:
   try {
     const { base64, mimeType } = await imageUrlToBase64(imageUrl)
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-goog-api-key': GEMINI_API_KEY,
       },
       body: JSON.stringify({
         contents: [{
