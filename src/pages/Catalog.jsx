@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger.js'
+import { isInquirable } from '../lib/stockStatus.js'
+import StockStatusBadge from '../components/StockStatusBadge.jsx'
 import { Loader2, MessageCircle, Tag, ChevronRight, Package, Store } from 'lucide-react'
 
 function Catalog() {
@@ -134,55 +136,77 @@ function Catalog() {
 
       {/* Items Grid */}
       <div className="max-w-lg mx-auto px-4 space-y-4 mt-2">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => openWhatsApp(item)}
-            className="w-full bg-white rounded-2xl border border-stone-200 overflow-hidden text-left hover:shadow-lg hover:border-copper-300 transition-all duration-200 active:scale-[0.98]"
-          >
-            <div className="relative">
-              <img
-                src={item.image_url}
-                alt={item.title}
-                className="w-full h-56 object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
-                <div className="flex items-end justify-between gap-2">
-                  <h3 className="font-bold text-white text-lg leading-tight flex-1 drop-shadow-sm">{item.title}</h3>
-                  <span className="text-white font-bold text-lg whitespace-nowrap drop-shadow-sm">{item.price}</span>
+        {items.map((item) => {
+          const inquirable = isInquirable(item.stock_status)
+          const isSold = item.stock_status === 'sold'
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => inquirable && openWhatsApp(item)}
+              disabled={!inquirable}
+              className={`w-full bg-white rounded-2xl border overflow-hidden text-left transition-all duration-200 ${
+                inquirable
+                  ? 'border-stone-200 hover:shadow-lg hover:border-copper-300 active:scale-[0.98]'
+                  : 'border-stone-200 opacity-60 cursor-not-allowed'
+              }`}
+            >
+              <div className="relative">
+                <img
+                  src={item.image_url}
+                  alt={item.title}
+                  className={`w-full h-56 object-cover ${isSold ? 'grayscale' : ''}`}
+                />
+                {isSold && (
+                  <div className="absolute inset-0 bg-charcoal-950/40 flex items-center justify-center backdrop-blur-[2px]">
+                    <span className="text-white font-bold text-2xl tracking-widest">SOLD</span>
+                  </div>
+                )}
+                <div className="absolute top-2 left-2">
+                  <StockStatusBadge status={item.stock_status} size="xs" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
+                  <div className="flex items-end justify-between gap-2">
+                    <h3 className="font-bold text-white text-lg leading-tight flex-1 drop-shadow-sm">{item.title}</h3>
+                    <span className="text-white font-bold text-lg whitespace-nowrap drop-shadow-sm">{item.price}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="p-4">
-              {item.description && (
-                <p className="text-charcoal-500 text-sm leading-relaxed">{item.description}</p>
-              )}
+              <div className="p-4">
+                {item.description && (
+                  <p className="text-charcoal-500 text-sm leading-relaxed">{item.description}</p>
+                )}
 
-              {item.size_specs && (
-                <div className="mt-3">
-                  <span className="inline-flex items-center gap-1.5 bg-sage-50 text-sage-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-sage-200">
-                    <Tag className="w-3 h-3" strokeWidth={2.5} />
-                    {item.size_specs}
-                  </span>
-                </div>
-              )}
+                {item.size_specs && (
+                  <div className="mt-3">
+                    <span className="inline-flex items-center gap-1.5 bg-sage-50 text-sage-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-sage-200">
+                      <Tag className="w-3 h-3" strokeWidth={2.5} />
+                      {item.size_specs}
+                    </span>
+                  </div>
+                )}
 
-              {item.extra_notes && (
-                <p className="text-charcoal-400 text-xs mt-3 italic leading-relaxed">{item.extra_notes}</p>
-              )}
+                {item.extra_notes && (
+                  <p className="text-charcoal-400 text-xs mt-3 italic leading-relaxed">{item.extra_notes}</p>
+                )}
 
-              {/* WhatsApp CTA */}
-              <div className="mt-4 pt-4 border-t border-stone-100">
-                <div className="flex items-center justify-center gap-2 bg-charcoal-950 text-white py-3.5 px-4 rounded-xl font-semibold text-sm hover:bg-charcoal-800 transition">
-                  <MessageCircle className="w-5 h-5" strokeWidth={2} />
-                  <span>Inquire on WhatsApp</span>
-                  <ChevronRight className="w-4 h-4 ml-1 opacity-60" strokeWidth={2} />
+                {/* WhatsApp CTA */}
+                <div className="mt-4 pt-4 border-t border-stone-100">
+                  <div className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-semibold text-sm transition ${
+                    inquirable
+                      ? 'bg-charcoal-950 text-white hover:bg-charcoal-800'
+                      : 'bg-charcoal-200 text-charcoal-400 cursor-not-allowed'
+                  }`}>
+                    <MessageCircle className="w-5 h-5" strokeWidth={2} />
+                    <span>{inquirable ? 'Inquire on WhatsApp' : 'Item Unavailable'}</span>
+                    {inquirable && <ChevronRight className="w-4 h-4 ml-1 opacity-60" strokeWidth={2} />}
+                  </div>
                 </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
 
       {/* Footer */}

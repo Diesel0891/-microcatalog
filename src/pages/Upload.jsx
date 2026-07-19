@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
 import { logger } from '../lib/logger.js'
-import { Upload as UploadIcon, Trash2, Plus, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
+import ProductCard from '../components/ProductCard.jsx'
+import { Upload as UploadIcon, Check, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, AlertCircle, Link2, Store } from 'lucide-react'
 
 const LOGO_URL = 'https://res.cloudinary.com/a3udr8l4/image/upload/w_200,h_200,c_fill,q_auto,f_webp/infini-logo_frripe.png?v=2'
 const COUNTRIES = [
@@ -653,125 +654,18 @@ function Upload() {
 
         <div className="grid grid-cols-1 gap-4">
           {items.map((item) => (
-            <div
+            <ProductCard
               key={item.id}
-              className={`bg-white rounded-xl shadow-sm border overflow-hidden transition ${
-                selectedIds.has(item.id) ? 'border-copper-400 ring-2 ring-copper-100' : 'border-stone-200'
-              }`}
-            >
-              {showBulkBar && (
-                <div className="px-4 pt-3 pb-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(item.id)}
-                      onChange={() => toggleSelect(item.id)}
-                      className="w-5 h-5 text-copper-600 rounded focus:ring-copper-500 border-stone-300"
-                    />
-                    <span className="text-sm text-charcoal-600 font-medium">Select for bulk apply</span>
-                  </label>
-                </div>
-              )}
-
-              <div className="relative">
-                <img src={item.imageUrl} alt="Product" className="w-full h-48 object-cover" />
-                {item.uploading && (
-                  <div className="absolute inset-0 bg-charcoal-950/60 flex items-center justify-center backdrop-blur-sm">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" strokeWidth={2} />
-                  </div>
-                )}
-                <button
-                  onClick={() => removeItem(item.id)}
-                  className="absolute top-2 right-2 bg-white/90 text-charcoal-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition shadow-sm"
-                >
-                  <Trash2 className="w-4 h-4" strokeWidth={2} />
-                </button>
-              </div>
-
-              <div className="p-4 space-y-3">
-              <button
-                onClick={() => handleSuggest(item.id)}
-                disabled={!item.saved || item.uploading || suggestingIds.has(item.id)}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-copper-200 bg-copper-50 text-copper-700 text-sm font-medium hover:bg-copper-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                {suggestingIds.has(item.id) ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" strokeWidth={2} />
-                    Suggest Details (Beta)
-                  </>
-                )}
-              </button>
-
-                {aiErrorId === item.id && (
-                  <p className="text-copper-700 text-xs mt-2 text-center bg-copper-50 border border-copper-200 rounded-lg py-2 px-3">
-                    Suggestions aren't ready. Please fill in the details manually.
-                  </p>
-                )}
-
-
-                <input
-                  type="text"
-                  placeholder="Title *"
-                  value={item.title}
-                  onChange={(e) => updateField(item.id, 'title', e.target.value)}
-                  className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  placeholder="Price *"
-                  value={item.price}
-                  onChange={(e) => updateField(item.id, 'price', e.target.value)}
-                  className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
-                />
-
-                <details className="group">
-                  <summary className="flex items-center gap-2 text-sm text-copper-600 cursor-pointer font-medium select-none">
-                    <Plus className="w-4 h-4" strokeWidth={2} />
-                    Add Details
-                  </summary>
-                  <div className="mt-3 space-y-3">
-                    <textarea
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(e) => updateField(item.id, 'description', e.target.value)}
-                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 h-20 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Size / Specs"
-                      value={item.sizeSpecs}
-                      onChange={(e) => updateField(item.id, 'sizeSpecs', e.target.value)}
-                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Extra Notes"
-                      value={item.extraNotes}
-                      onChange={(e) => updateField(item.id, 'extraNotes', e.target.value)}
-                      className="w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-copper-400 focus:border-transparent"
-                    />
-                  </div>
-                </details>
-
-                {item.error && (
-                  <p className="text-red-600 text-sm flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                    {item.error}
-                  </p>
-                )}
-                {item.saved && !item.error && (
-                  <p className="text-sage-600 text-sm flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                    Saved
-                  </p>
-                )}
-              </div>
-            </div>
+              item={item}
+              showBulkBar={showBulkBar}
+              isSelected={selectedIds.has(item.id)}
+              onToggleSelect={() => toggleSelect(item.id)}
+              onRemove={() => removeItem(item.id)}
+              onUpdateField={(field, value) => updateField(item.id, field, value)}
+              onSuggest={() => handleSuggest(item.id)}
+              isSuggesting={suggestingIds.has(item.id)}
+              showAiError={aiErrorId === item.id}
+            />
           ))}
         </div>
 
