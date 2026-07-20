@@ -158,8 +158,8 @@ function Catalog() {
                   className={`w-full h-56 object-cover ${isSold ? 'grayscale' : ''}`}
                 />
                 {isSold && (
-                  <div className="absolute inset-0 bg-charcoal-950/40 flex items-center justify-center backdrop-blur-[2px]">
-                    <span className="text-white font-bold text-2xl tracking-widest">SOLD</span>
+                  <div className="absolute inset-0 bg-charcoal-950/15 flex items-center justify-center">
+                    <span className="text-white font-bold text-2xl tracking-widest drop-shadow-lg">SOLD</span>
                   </div>
                 )}
                 <div className="absolute top-2 left-2">

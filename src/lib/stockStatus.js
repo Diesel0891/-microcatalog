@@ -35,19 +35,19 @@ export const STOCK_LABELS = {
  */
 export const STOCK_COLORS = {
   [STOCK_STATUS.AVAILABLE]: {
-    bg: 'bg-sage-50',
-    text: 'text-sage-700',
-    border: 'border-sage-200',
+    bg: 'bg-sage-100',
+    text: 'text-sage-800',
+    border: 'border-sage-300',
   },
   [STOCK_STATUS.RESERVED]: {
-    bg: 'bg-copper-50',
-    text: 'text-copper-700',
-    border: 'border-copper-200',
+    bg: 'bg-copper-100',
+    text: 'text-copper-800',
+    border: 'border-copper-300',
   },
   [STOCK_STATUS.SOLD]: {
-    bg: 'bg-charcoal-100',
-    text: 'text-charcoal-500',
-    border: 'border-charcoal-200',
+    bg: 'bg-red-50',
+    text: 'text-red-700',
+    border: 'border-red-200',
   },
 }
 
