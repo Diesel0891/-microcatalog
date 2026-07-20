@@ -8,14 +8,13 @@
  * @module ProductCard
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Loader2,
   Trash2,
   Sparkles,
   Plus,
   AlertCircle,
-  Check,
 } from 'lucide-react'
 import StockStatusBadge from './StockStatusBadge.jsx'
 import StockStatusSelector from './StockStatusSelector.jsx'
@@ -53,6 +52,44 @@ export default function ProductCard({
   const [localStatus, setLocalStatus] = useState(
     item.stock_status || DEFAULT_STOCK_STATUS
   )
+  const [showSavedFlash, setShowSavedFlash] = useState(false)
+  const prevFieldsRef = useRef(null)
+  const prevSavedRef = useRef(item.saved)
+
+  useEffect(() => {
+    const currentFields = {
+      title: item.title,
+      price: item.price,
+      description: item.description,
+      sizeSpecs: item.sizeSpecs,
+      extraNotes: item.extraNotes,
+    }
+
+    // Skip initial mount
+    if (prevFieldsRef.current === null) {
+      prevFieldsRef.current = currentFields
+      prevSavedRef.current = item.saved
+      return
+    }
+
+    // Trigger 1: item just became saved (upload completed)
+    const justBecameSaved = item.saved && !prevSavedRef.current
+    // Trigger 2: any editable field changed while already saved
+    const hasFieldChanged = Object.keys(currentFields).some(
+      key => prevFieldsRef.current[key] !== currentFields[key]
+    )
+
+    if ((justBecameSaved || hasFieldChanged) && item.saved) {
+      setShowSavedFlash(true)
+      const timer = setTimeout(() => setShowSavedFlash(false), 2000)
+      prevFieldsRef.current = currentFields
+      prevSavedRef.current = item.saved
+      return () => clearTimeout(timer)
+    }
+
+    prevFieldsRef.current = currentFields
+    prevSavedRef.current = item.saved
+  }, [item.title, item.price, item.description, item.sizeSpecs, item.extraNotes, item.saved])
 
   const handleStatusChange = async (newStatus) => {
     setLocalStatus(newStatus)
@@ -119,7 +156,7 @@ export default function ProductCard({
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 relative">
         <button
           onClick={onSuggest}
           disabled={!item.saved || item.uploading || isSuggesting}
@@ -201,11 +238,10 @@ export default function ProductCard({
             {item.error}
           </p>
         )}
-        {item.saved && !item.error && (
-          <p className="text-sage-600 text-sm flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5" strokeWidth={3} />
+        {showSavedFlash && (
+          <div className="absolute top-2 right-12 bg-sage-100 text-sage-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-sage-300 shadow-sm animate-pulse">
             Saved
-          </p>
+          </div>
         )}
       </div>
     </div>

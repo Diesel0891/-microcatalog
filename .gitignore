@@ -28,3 +28,6 @@ dist/
 
 # Build artifacts containing inlined secrets
 dist.zip
+
+# Local Netlify folder
+.netlify

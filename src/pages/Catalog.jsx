@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger.js'
-import { isInquirable } from '../lib/stockStatus.js'
+import { isInquirable, getStockLabel } from '../lib/stockStatus.js'
 import StockStatusBadge from '../components/StockStatusBadge.jsx'
 import { Loader2, MessageCircle, Tag, ChevronRight, Package, Store } from 'lucide-react'
 
@@ -52,6 +52,7 @@ function Catalog() {
   const openWhatsApp = (item) => {
     const message = [
       `Hi, I'm interested in *${item.title}* — ${item.price}`,
+      `Status: ${getStockLabel(item.stock_status)}`,
       ``,
       `📷 Product photo:`,
       `${item.image_url}`

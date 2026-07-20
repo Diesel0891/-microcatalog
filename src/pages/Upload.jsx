@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { uploadToCloudinary } from '../lib/cloudinary'
@@ -54,6 +54,7 @@ function Upload() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loadingSeller, setLoadingSeller] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
+  const fileInputCounter = useRef(0)
 
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkPrice, setBulkPrice] = useState('')
@@ -182,7 +183,7 @@ function Upload() {
       saved: false,
     }))
 
-    setItems((prev) => [...prev, ...newItems])
+    setItems((prev) => [...newItems, ...prev])
 
     for (const item of newItems) {
       try {
@@ -604,12 +605,13 @@ function Upload() {
           <p className="text-charcoal-400 text-xs mt-1">
             {isAtLimit ? 'Upgrade for unlimited items' : `Up to ${remainingSlots} more images`}
           </p>
-          <input 
-            type="file" 
-            accept="image/*" 
-            multiple 
-            onChange={handleFileSelect} 
-            className="hidden" 
+          <input
+            key={fileInputCounter.current}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => { handleFileSelect(e); fileInputCounter.current += 1 }}
+            className="hidden"
           />
         </label>
 
