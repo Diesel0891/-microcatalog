@@ -103,3 +103,33 @@ Security table for admin tokens. **CRITICAL: RLS policy currently not blocking a
 - `src/pages/Catalog.jsx` — Reads `catalog_items` (published=true), `sellers`
 - `src/hooks/useStockStatus.js` — Updates `catalog_items.stock_status`
 
+
+---
+
+## RLS Verification Log
+
+### 2026-07-24: seller_secrets
+- **Status:** ✅ SECURED
+- **SELECT:** Returns `[]` (200 OK) — no data leaked
+- **INSERT:** Blocked with 401 / code 42501
+- **Policies:** `Block direct anon access` (qual=false), `secrets_block_all_anon` (qual=false)
+- **Table RLS:** `relrowsecurity: true`
+
+
+### 2026-07-24: catalog_items
+- **Status:** ⚠️ APP-LAYER GATED (accepted v1 risk)
+- **INSERT:** Allowed with anon key (HTTP 201)
+- **SELECT:** Allowed (public catalog)
+- **RLS:** Not configured to block inserts
+- **Mitigation:** Manage URL entropy (128-bit UUID) + unpublished by default
+- **Future:** Migrate to SECURITY DEFINER insert function or auth in v2
+
+
+### 2026-07-24: sellers
+- **Status:** ✅ APP-LAYER GATED (accepted v1 pattern)
+- **SELECT:** Allowed (public catalog needs this)
+- **INSERT:** Allowed (onboarding mechanism — creates seller on first visit)
+- **UPDATE:** Allowed (shop details, phone updates)
+- **Mitigation:** UUID entropy + no sensitive data in public fields
+- **Future:** Add manage_token + scoped UPDATE policies in v2
+
