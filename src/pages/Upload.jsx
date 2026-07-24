@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { uploadToCloudinary } from '../lib/cloudinary'
 import { suggestProductDetails } from '../lib/ai'
@@ -40,8 +40,6 @@ function detectCountry() {
 
 function Upload() {
   const { sellerUuid } = useParams()
-  const [searchParams] = useSearchParams()
-  const isAdmin = searchParams.get('admin') === '1'
   
   const [items, setItems] = useState([])
   const [totalItemCount, setTotalItemCount] = useState(0)
@@ -155,15 +153,15 @@ function Upload() {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
-    const maxItems = (isAdmin ? 999999 : seller.max_items) || 999
+    const maxItems = seller?.max_items || 999
     const remaining = maxItems - totalItemCount
 
-    if (remaining <= 0 && !isAdmin) {
+    if (remaining <= 0) {
       alert(`You've reached your limit of ${seller.max_items || 999} items. Upgrade to add more.`)
       return
     }
 
-    const filesToUpload = files.slice(0, isAdmin ? files.length : remaining)
+    const filesToUpload = files.slice(0, remaining)
     if (filesToUpload.length === 0) {
       alert(`You can only upload ${remaining} more item(s).`)
       return
@@ -233,7 +231,7 @@ function Upload() {
         )
       }
     }
-  }, [sellerUuid, sellerPhone, totalItemCount, seller, isAdmin])
+  }, [sellerUuid, sellerPhone, totalItemCount, seller])
 
   const toggleSelect = useCallback((id) => {
     setSelectedIds((prev) => {
@@ -484,9 +482,9 @@ function Upload() {
     )
   }
 
-  const maxItems = (isAdmin ? 999999 : seller?.max_items) || 999
+  const maxItems = seller?.max_items || 999
   const remainingSlots = maxItems - totalItemCount
-  const isAtLimit = !isAdmin && remainingSlots <= 0
+  const isAtLimit = remainingSlots <= 0
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-28">
@@ -502,19 +500,16 @@ function Upload() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs text-charcoal-400">{totalItemCount} / {isAdmin ? '∞' : maxItems} items</p>
-            {!isAdmin && !seller?.is_pro && (
+            <p className="text-xs text-charcoal-400">{totalItemCount} / {maxItems} items</p>
+            {!seller?.is_pro && (
               <p className="text-xs text-copper-600 font-medium">{remainingSlots} remaining</p>
-            )}
-            {isAdmin && (
-              <p className="text-xs text-sage-600 font-medium">Admin mode</p>
             )}
           </div>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {!isAdmin && !seller?.is_pro && remainingSlots <= 3 && (
+        {!seller?.is_pro && remainingSlots <= 3 && (
           <div className="bg-copper-50 border border-copper-200 rounded-xl p-4 flex items-start gap-3">
             <Sparkles className="w-5 h-5 text-copper-600 shrink-0 mt-0.5" strokeWidth={2} />
             <div className="flex-1">
